@@ -115,7 +115,7 @@ uv run --project rvc_training_data rvc-zip-dataset \
 
 ## 4. Colab 训练 RVC
 
-推荐直接打开 `rvc_training_data/colab/train_rvc_colab.ipynb`，按单元格执行。下面是脚本版等价命令，适合你想复制到自己的 notebook 或 Colab shell。
+推荐直接打开 `rvc_training_data/colab/train_rvc_colab.ipynb`，按单元格执行。Notebook 会 clone 你的 GitHub 仓库，训练脚本会随仓库一起下载，不需要再单独上传 `train_rvc_colab.py`。下面是脚本版等价命令，适合你想复制到自己的 notebook 或 Colab shell。
 
 在 Colab 里建议使用 GPU Runtime。先挂载 Drive：
 
@@ -128,13 +128,16 @@ drive.mount("/content/drive")
 
 ```bash
 %cd /content
-!git clone https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI RVC
+!git clone https://github.com/rikaaa0928/Retrieval-based-Voice-Conversion-WebUI.git RVC
 %cd /content/RVC
-!pip install -r requirements.txt
+import sys
+requirements_file = "requirements-py311.txt" if sys.version_info >= (3, 11) else "requirements.txt"
+print(f"Python: {sys.version.split()[0]}, installing {requirements_file}")
+!pip install -r "$requirements_file"
 !python tools/download_models.py
 ```
 
-把本仓库的 `rvc_training_data/colab/train_rvc_colab.py` 上传或复制到 Colab 的 `/content/RVC/rvc_training_data/colab/train_rvc_colab.py`。如果用 notebook，里面已有对应单元格。如果你把数据 zip 上传到 Drive，先解压：
+如果你把数据 zip 上传到 Drive，先解压：
 
 ```bash
 !mkdir -p /content/drive/MyDrive/rvc_datasets
