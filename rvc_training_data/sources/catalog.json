@@ -1,0 +1,35 @@
+{
+  "en": [
+    {
+      "id": "gutenberg_alice_11",
+      "title": "Alice's Adventures in Wonderland",
+      "author": "Lewis Carroll",
+      "url": "https://www.gutenberg.org/cache/epub/11/pg11.txt",
+      "format": "txt",
+      "encoding": "utf-8",
+      "license_note": "Project Gutenberg license; public domain in the United States"
+    }
+  ],
+  "zh": [
+    {
+      "id": "local_luxun_selected_simplified",
+      "title": "鲁迅作品选_排版修复版",
+      "author": "鲁迅",
+      "path": "zh_luxun_selected_simplified.txt",
+      "format": "txt",
+      "encoding": "utf-8",
+      "license_note": "Local Simplified Chinese text provided by the user"
+    }
+  ],
+  "ja": [
+    {
+      "id": "aozora_wagahai_789",
+      "title": "吾輩は猫である",
+      "author": "夏目漱石",
+      "url": "https://www.aozora.gr.jp/cards/000148/files/789_ruby_5639.zip",
+      "format": "aozora_zip",
+      "encoding": "shift_jis",
+      "license_note": "青空文庫; author copyright expired in Japan"
+    }
+  ]
+}

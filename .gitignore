@@ -1,5 +1,6 @@
 .DS_Store
 __pycache__
+*.py[cod]
 /TEMP
 *.pyd
 .venv
@@ -26,3 +27,10 @@ rmvpe.pt
 /assets/weights/*
 ffmpeg.*
 ffprobe.*
+
+# RVC TTS dataset tooling
+/rvc_training_data/.env
+/rvc_training_data/.venv/
+/rvc_training_data/data/*
+!/rvc_training_data/data/.gitignore
+/rvc_training_data/**/.DS_Store
