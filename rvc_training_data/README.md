@@ -18,6 +18,7 @@ rvc_training_data/
   colab/train_rvc_colab.py       # Colab 训练入口
   kaggle/train_rvc_kaggle.py     # Kaggle 训练入口
   kaggle/train_rvc_kaggle.ipynb  # Kaggle Notebook
+  kaggle/requirements-kaggle.txt # Kaggle Python 3.12 依赖
   data/                          # 本地生成结果，默认不入 git
 ```
 
@@ -181,7 +182,7 @@ print(f"Python: {sys.version.split()[0]}, installing {requirements_file}")
 
 ## 5. Kaggle 训练 RVC
 
-推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。
+推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。Kaggle Python 3.12 下不要直接装根目录的 `requirements-py311.txt`，请使用 `rvc_training_data/kaggle/requirements-kaggle.txt`。
 
 Kaggle 的路径和 Colab 不同：
 
@@ -205,12 +206,8 @@ cd /kaggle/working
 git clone https://github.com/rikaaa0928/Retrieval-based-Voice-Conversion-WebUI.git RVC
 cd /kaggle/working/RVC
 python -m pip install --upgrade pip setuptools wheel
-requirements_file=$(python - <<'PY'
-import sys
-print("requirements-py311.txt" if sys.version_info >= (3, 11) else "requirements.txt")
-PY
-)
-pip install -r "$requirements_file"
+pip install -r rvc_training_data/kaggle/requirements-kaggle.txt
+python -c "import fairseq; print(fairseq.__file__)"
 python tools/download_models.py
 
 python rvc_training_data/kaggle/train_rvc_kaggle.py \
