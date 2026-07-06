@@ -233,6 +233,7 @@ Kaggle 版默认会减少磁盘占用：
 
 - `--save-every-weights 0`：不额外保存每个保存周期的推理权重。
 - `--save-latest 1`：训练 checkpoint 只覆盖最新的 `G_2333333.pth`/`D_2333333.pth`。
+- Kaggle requirements 固定 `torch==2.5.1`，避免新版 PyTorch wheel 不支持 P100/sm_60。
 - 只下载当前训练必需的 HuBERT、RMVPE 和 G/D 预训练模型，不下载全量 WebUI/UVR 模型。
 - 导出后自动打包最终 `.pth`、`.index`、`train.log` 和 summary。
 - 默认删除训练中间目录、复制到 `assets/weights` 的权重副本、未压缩的导出目录和训练 venv。
