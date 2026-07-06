@@ -14,27 +14,24 @@ from pathlib import Path
 
 
 SR_MAP = {"32k": 32000, "40k": 40000, "48k": 48000}
-DEFAULT_KAGGLE_DEPS = Path("/kaggle/working/rvc_python_deps")
+DEFAULT_KAGGLE_PYTHON = Path("/kaggle/working/rvc_venv/bin/python")
 
 
-def ensure_kaggle_deps_path() -> None:
+def ensure_kaggle_python() -> None:
     if not Path("/kaggle").exists():
         return
 
-    deps_dir = Path(os.environ.get("RVC_KAGGLE_DEPS", DEFAULT_KAGGLE_DEPS))
-    if not deps_dir.exists():
-        raise RuntimeError(
-            "Kaggle 依赖目录不存在。请先运行 notebook 的“安装 RVC”单元，"
-            "安装依赖到 /kaggle/working/rvc_python_deps。"
-        )
+    preferred = Path(os.environ.get("RVC_KAGGLE_PYTHON", DEFAULT_KAGGLE_PYTHON))
+    current = Path(sys.executable).resolve()
+    if preferred.exists() and current != preferred.resolve():
+        print(f"Re-executing with Kaggle uv venv Python: {preferred}", flush=True)
+        os.execv(str(preferred), [str(preferred), str(Path(__file__).resolve()), *sys.argv[1:]])
 
-    deps = str(deps_dir.resolve())
-    if deps not in sys.path:
-        sys.path.insert(0, deps)
-    pythonpath = os.environ.get("PYTHONPATH", "")
-    parts = [part for part in pythonpath.split(os.pathsep) if part]
-    if deps not in parts:
-        os.environ["PYTHONPATH"] = os.pathsep.join([deps, *parts])
+    if not preferred.exists():
+        raise RuntimeError(
+            "Kaggle uv venv Python 不存在。请先运行 notebook 的“安装 RVC”单元，"
+            "创建 /kaggle/working/rvc_venv 并安装 Kaggle 专用依赖。"
+        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -235,7 +232,7 @@ def export_artifacts(args: argparse.Namespace, summary_path: Path) -> Path:
 
 
 def main() -> None:
-    ensure_kaggle_deps_path()
+    ensure_kaggle_python()
     args = parse_args()
     args.repo_dir = args.repo_dir.resolve()
     args.dataset_dir = prepare_kaggle_dataset(args)

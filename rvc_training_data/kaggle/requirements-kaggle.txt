@@ -1,9 +1,12 @@
 joblib>=1.1.0
-numba
-numpy
+setuptools>=70
+wheel
+numba==0.60.0
+numpy==1.26.4
 scipy
 librosa==0.10.2
-llvmlite
+llvmlite==0.43.0
+protobuf>=6.31.1,<7
 fairseq-fixed==0.12.3.1
 faiss-cpu
 Cython
