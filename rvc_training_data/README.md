@@ -182,7 +182,7 @@ print(f"Python: {sys.version.split()[0]}, installing {requirements_file}")
 
 ## 5. Kaggle 训练 RVC
 
-推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。Kaggle 下不要直接装根目录的完整 WebUI requirements；Notebook 会先安装 `uv`，用 `uv venv` 创建隔离的 `/kaggle/working/rvc_venv`，再用 `uv pip` 安装 `rvc_training_data/kaggle/requirements-kaggle.txt` 这份训练最小依赖。训练结束后默认删除 venv，避免 Output 体积过大。
+推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。Kaggle 下不要直接装根目录的完整 WebUI requirements；Notebook 会先安装 `uv`，重建隔离的 `/kaggle/working/rvc_venv`，再用 `uv pip` 安装 `rvc_training_data/kaggle/requirements-kaggle.txt` 这份训练最小依赖。训练结束后默认删除 venv，避免 Output 体积过大。
 
 Kaggle 的路径和 Colab 不同：
 

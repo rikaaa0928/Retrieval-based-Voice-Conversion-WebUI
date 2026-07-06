@@ -1,6 +1,7 @@
 joblib>=1.1.0
-setuptools>=70
+setuptools==80.9.0
 wheel
+wrapt
 numba==0.60.0
 numpy==1.26.4
 scipy
