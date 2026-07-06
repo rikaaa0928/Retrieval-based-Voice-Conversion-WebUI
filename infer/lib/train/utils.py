@@ -234,9 +234,7 @@ def plot_spectrogram_to_numpy(spectrogram):
     plt.ylabel("Channels")
     plt.tight_layout()
 
-    fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    data = figure_to_numpy(fig, np)
     plt.close()
     return data
 
@@ -265,11 +263,18 @@ def plot_alignment_to_numpy(alignment, info=None):
     plt.ylabel("Encoder timestep")
     plt.tight_layout()
 
-    fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    data = figure_to_numpy(fig, np)
     plt.close()
     return data
+
+
+def figure_to_numpy(fig, np):
+    fig.canvas.draw()
+    if hasattr(fig.canvas, "buffer_rgba"):
+        data = np.asarray(fig.canvas.buffer_rgba())
+        return data[:, :, :3].copy()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    return data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
 
 def load_wav_to_torch(full_path):
