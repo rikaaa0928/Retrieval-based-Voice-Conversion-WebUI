@@ -207,9 +207,9 @@ cd /kaggle/working
 git clone https://github.com/rikaaa0928/Retrieval-based-Voice-Conversion-WebUI.git RVC
 cd /kaggle/working/RVC
 mkdir -p /kaggle/working/rvc_python_deps
-python -m pip install --upgrade --target /kaggle/working/rvc_python_deps pip "setuptools>=70" wheel
-python -m pip install --upgrade --target /kaggle/working/rvc_python_deps -r rvc_training_data/kaggle/requirements-kaggle.txt
-python -m pip install --upgrade --force-reinstall --target /kaggle/working/rvc_python_deps "setuptools>=70" "pyworld==0.3.2"
+python -m pip install --no-warn-conflicts --upgrade --target /kaggle/working/rvc_python_deps "setuptools>=70" wheel
+python -m pip install --no-warn-conflicts --upgrade --target /kaggle/working/rvc_python_deps -r rvc_training_data/kaggle/requirements-kaggle.txt
+python -m pip install --no-warn-conflicts --upgrade --force-reinstall --target /kaggle/working/rvc_python_deps "setuptools>=70" "pyworld==0.3.2"
 PYTHONPATH=/kaggle/working/rvc_python_deps python -c "import fairseq; print(fairseq.__file__)"
 PYTHONPATH=/kaggle/working/rvc_python_deps python -c "import pyworld; print(pyworld.__file__)"
 
