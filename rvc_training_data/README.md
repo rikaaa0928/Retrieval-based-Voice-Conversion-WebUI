@@ -4,7 +4,7 @@
 
 1. 从公版文本源下载中文/英文/日文文本。
 2. 调用 `src/rvc_data_tools/tts_client.py` 的 TTS 接口生成 RVC 训练音频，每条音频控制在 5-15 秒。
-3. 在 Colab 上用 Google Drive 里的数据集训练 RVC 模型并构建 index。
+3. 在 Colab 或 Kaggle 上用生成的数据集训练 RVC 模型并构建 index。
 
 请只用你有授权的声音、音色和文本。默认文本源限制在公版/可公开再利用来源；你也可以替换 `sources/catalog.json`。
 
@@ -16,6 +16,8 @@ rvc_training_data/
   sources/catalog.json           # 中/英/日默认文本源
   src/rvc_data_tools/            # 本地数据生成工具
   colab/train_rvc_colab.py       # Colab 训练入口
+  kaggle/train_rvc_kaggle.py     # Kaggle 训练入口
+  kaggle/train_rvc_kaggle.ipynb  # Kaggle Notebook
   data/                          # 本地生成结果，默认不入 git
 ```
 
@@ -177,9 +179,65 @@ print(f"Python: {sys.version.split()[0]}, installing {requirements_file}")
 !cp /content/RVC/logs/leijun_zh_v2_48k/train.log /content/drive/MyDrive/rvc_models/leijun_zh_v2_48k/
 ```
 
-## 5. 本地加载变声器
+## 5. Kaggle 训练 RVC
 
-把 Colab 产物下载回本地仓库：
+推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。
+
+Kaggle 的路径和 Colab 不同：
+
+- 输入数据：`/kaggle/input/...`，只读。
+- 临时工作区和输出：`/kaggle/working/...`，训练产物会作为 Notebook Output 保存。
+
+Notebook 里的关键参数示例：
+
+```python
+REPO_URL = "https://github.com/rikaaa0928/Retrieval-based-Voice-Conversion-WebUI.git"
+REPO_DIR = Path("/kaggle/working/RVC")
+DATASET_ZIP = Path("/kaggle/input/zh-leijun-45m/zh_leijun_45m.zip")
+EXPERIMENT = "leijun_zh_v2_48k"
+EXPORT_DIR = Path("/kaggle/working/rvc_models") / EXPERIMENT
+```
+
+脚本版等价命令：
+
+```bash
+cd /kaggle/working
+git clone https://github.com/rikaaa0928/Retrieval-based-Voice-Conversion-WebUI.git RVC
+cd /kaggle/working/RVC
+python -m pip install --upgrade pip setuptools wheel
+requirements_file=$(python - <<'PY'
+import sys
+print("requirements-py311.txt" if sys.version_info >= (3, 11) else "requirements.txt")
+PY
+)
+pip install -r "$requirements_file"
+python tools/download_models.py
+
+python rvc_training_data/kaggle/train_rvc_kaggle.py \
+  --repo-dir /kaggle/working/RVC \
+  --dataset-zip /kaggle/input/zh-leijun-45m/zh_leijun_45m.zip \
+  --experiment leijun_zh_v2_48k \
+  --sample-rate 48k \
+  --version v2 \
+  --if-f0 1 \
+  --f0-method rmvpe \
+  --gpus 0 \
+  --batch-size 8 \
+  --total-epoch 200 \
+  --save-every-epoch 20 \
+  --save-every-weights 1 \
+  --export-dir /kaggle/working/rvc_models/leijun_zh_v2_48k
+```
+
+训练完成后下载 Kaggle Output 里的：
+
+- `/kaggle/working/rvc_models/leijun_zh_v2_48k/leijun_zh_v2_48k.pth`
+- `/kaggle/working/rvc_models/leijun_zh_v2_48k/added_IVF*.index`
+- `/kaggle/working/rvc_models/leijun_zh_v2_48k/train.log`
+
+## 6. 本地加载变声器
+
+把 Colab/Kaggle 产物下载回本地仓库：
 
 ```text
 assets/weights/leijun_zh_v2_48k.pth
