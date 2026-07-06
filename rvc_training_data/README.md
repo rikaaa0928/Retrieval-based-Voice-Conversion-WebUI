@@ -18,7 +18,7 @@ rvc_training_data/
   colab/train_rvc_colab.py       # Colab 训练入口
   kaggle/train_rvc_kaggle.py     # Kaggle 训练入口
   kaggle/train_rvc_kaggle.ipynb  # Kaggle Notebook
-  kaggle/requirements-kaggle.txt # Kaggle Python 3.12 依赖
+  kaggle/requirements-kaggle.txt # Kaggle 训练最小依赖
   data/                          # 本地生成结果，默认不入 git
 ```
 
@@ -182,7 +182,7 @@ print(f"Python: {sys.version.split()[0]}, installing {requirements_file}")
 
 ## 5. Kaggle 训练 RVC
 
-推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。Kaggle Python 3.12 下不要直接装根目录的 `requirements-py311.txt`，请使用 `rvc_training_data/kaggle/requirements-kaggle.txt`。
+推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。Kaggle 下不要直接装根目录的完整 WebUI requirements；Notebook 会创建 `/kaggle/working/rvc_venv`，并安装 `rvc_training_data/kaggle/requirements-kaggle.txt` 这份训练最小依赖，避免降级 Kaggle 主环境里的 `pydantic/starlette`。
 
 Kaggle 的路径和 Colab 不同：
 
@@ -205,12 +205,13 @@ EXPORT_DIR = Path("/kaggle/working/rvc_models") / EXPERIMENT
 cd /kaggle/working
 git clone https://github.com/rikaaa0928/Retrieval-based-Voice-Conversion-WebUI.git RVC
 cd /kaggle/working/RVC
-python -m pip install --upgrade pip setuptools wheel
-pip install -r rvc_training_data/kaggle/requirements-kaggle.txt
-python -c "import fairseq; print(fairseq.__file__)"
-python tools/download_models.py
+python -m venv --system-site-packages /kaggle/working/rvc_venv
+/kaggle/working/rvc_venv/bin/python -m pip install --upgrade pip setuptools wheel
+/kaggle/working/rvc_venv/bin/python -m pip install -r rvc_training_data/kaggle/requirements-kaggle.txt
+/kaggle/working/rvc_venv/bin/python -c "import fairseq; print(fairseq.__file__)"
+/kaggle/working/rvc_venv/bin/python tools/download_models.py
 
-python rvc_training_data/kaggle/train_rvc_kaggle.py \
+/kaggle/working/rvc_venv/bin/python rvc_training_data/kaggle/train_rvc_kaggle.py \
   --repo-dir /kaggle/working/RVC \
   --dataset-zip /kaggle/input/zh-leijun-45m/zh_leijun_45m.zip \
   --experiment leijun_zh_v2_48k \
