@@ -14,6 +14,24 @@ from pathlib import Path
 
 
 SR_MAP = {"32k": 32000, "40k": 40000, "48k": 48000}
+DEFAULT_KAGGLE_PYTHON = Path("/kaggle/working/rvc_venv/bin/python")
+
+
+def ensure_kaggle_python() -> None:
+    if not Path("/kaggle").exists():
+        return
+
+    preferred = Path(os.environ.get("RVC_KAGGLE_PYTHON", DEFAULT_KAGGLE_PYTHON))
+    current = Path(sys.executable).resolve()
+    if preferred.exists() and current != preferred.resolve():
+        print(f"Re-executing with Kaggle venv Python: {preferred}", flush=True)
+        os.execv(str(preferred), [str(preferred), str(Path(__file__).resolve()), *sys.argv[1:]])
+
+    if not preferred.exists() and current == Path("/usr/bin/python3"):
+        raise RuntimeError(
+            "Kaggle venv Python 不存在。请先运行 notebook 的“安装 RVC”单元，"
+            "创建 /kaggle/working/rvc_venv 并安装 Kaggle 专用依赖。"
+        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -35,13 +53,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--save-every-epoch", type=int, default=20)
     parser.add_argument("--save-latest", type=int, choices=[0, 1], default=1)
     parser.add_argument("--cache-gpu", type=int, choices=[0, 1], default=0)
-    parser.add_argument("--save-every-weights", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--save-every-weights", type=int, choices=[0, 1], default=0)
     parser.add_argument("--preprocess-per", type=float, default=3.7)
     parser.add_argument("--fp32", action="store_true", help="Disable half precision.")
     parser.add_argument("--overwrite-dataset", action="store_true")
     parser.add_argument("--skip-train", action="store_true", help="Only preprocess/extract/build filelist/index if possible.")
     parser.add_argument("--export-dir", type=Path, default=None, help="Kaggle output directory for trained artifacts.")
     parser.add_argument("--export-checkpoints", action="store_true", help="Also export logs/<experiment>/G_*.pth and D_*.pth.")
+    parser.add_argument("--keep-export-dir", action="store_true", help="Keep unpacked exported files next to the zip package.")
+    parser.add_argument("--keep-training-cache", action="store_true", help="Keep copied datasets, feature cache, and checkpoints after export.")
+    parser.add_argument("--skip-model-download", action="store_true", help="Do not download minimal Kaggle training models.")
     return parser.parse_args()
 
 
@@ -49,6 +70,43 @@ def run(cmd: list[str], cwd: Path) -> None:
     printable = " ".join(str(part) for part in cmd)
     print(f"\n$ {printable}", flush=True)
     subprocess.run(cmd, cwd=cwd, check=True)
+
+
+def download_file(url: str, target: Path) -> None:
+    if target.exists() and target.stat().st_size > 0:
+        print(f"Model exists: {target}")
+        return
+
+    import requests
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    print(f"Downloading {url} -> {target}")
+    with requests.get(url, stream=True, timeout=60) as response:
+        response.raise_for_status()
+        with tmp.open("wb") as handle:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    handle.write(chunk)
+    tmp.replace(target)
+
+
+def ensure_minimal_training_models(args: argparse.Namespace) -> None:
+    if args.skip_model_download:
+        return
+
+    base_url = "https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/main"
+    download_file(f"{base_url}/hubert_base.pt", args.repo_dir / "assets" / "hubert" / "hubert_base.pt")
+    if args.if_f0 and args.f0_method in {"rmvpe", "rmvpe_gpu"}:
+        download_file(f"{base_url}/rmvpe.pt", args.repo_dir / "assets" / "rmvpe" / "rmvpe.pt")
+
+    folder = "pretrained" if args.version == "v1" else "pretrained_v2"
+    prefix = "f0" if args.if_f0 else ""
+    for name in [f"{prefix}G{args.sample_rate}.pth", f"{prefix}D{args.sample_rate}.pth"]:
+        download_file(
+            f"{base_url}/{folder}/{name}",
+            args.repo_dir / "assets" / folder / name,
+        )
 
 
 def load_colab_pipeline(repo_dir: Path):
@@ -98,7 +156,44 @@ def prepare_kaggle_dataset(args: argparse.Namespace) -> Path:
     return dataset_dir
 
 
-def export_artifacts(args: argparse.Namespace, summary_path: Path) -> list[Path]:
+def create_package(export_dir: Path, package_path: Path) -> Path:
+    if package_path.exists():
+        package_path.unlink()
+    with zipfile.ZipFile(package_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(export_dir.rglob("*")):
+            if path.is_file():
+                archive.write(path, path.relative_to(export_dir.parent))
+    print(f"Created package: {package_path}")
+    return package_path
+
+
+def cleanup_after_export(args: argparse.Namespace, export_dir: Path) -> None:
+    if args.keep_training_cache:
+        return
+
+    targets = [
+        args.repo_dir / "datasets" / args.experiment,
+        args.repo_dir / "logs" / args.experiment,
+    ]
+    if args.dataset_zip is not None and Path("/kaggle/working") in args.extract_dir.resolve().parents:
+        targets.append(args.extract_dir)
+    for target in targets:
+        if target.exists():
+            shutil.rmtree(target)
+            print(f"Removed training cache: {target}")
+
+    weights_dir = args.repo_dir / "assets" / "weights"
+    for pattern in [f"{args.experiment}.pth", f"{args.experiment}_e*_s*.pth"]:
+        for path in weights_dir.glob(pattern):
+            path.unlink()
+            print(f"Removed exported weight copy: {path}")
+
+    if not args.keep_export_dir and export_dir.exists():
+        shutil.rmtree(export_dir)
+        print(f"Removed unpacked export dir: {export_dir}")
+
+
+def export_artifacts(args: argparse.Namespace, summary_path: Path) -> Path:
     export_dir = args.export_dir or (Path("/kaggle/working/rvc_models") / args.experiment)
     export_dir.mkdir(parents=True, exist_ok=True)
 
@@ -127,13 +222,21 @@ def export_artifacts(args: argparse.Namespace, summary_path: Path) -> list[Path]
     print(f"Exported {len(exported)} file(s) to {export_dir}")
     for path in sorted(exported):
         print(path)
-    return exported
+    if not exported:
+        raise RuntimeError(f"没有导出任何文件，请检查训练是否生成了最终权重和 index: {export_dir}")
+
+    package_path = export_dir.with_suffix(".zip")
+    create_package(export_dir, package_path)
+    cleanup_after_export(args, export_dir)
+    return package_path
 
 
 def main() -> None:
+    ensure_kaggle_python()
     args = parse_args()
     args.repo_dir = args.repo_dir.resolve()
     args.dataset_dir = prepare_kaggle_dataset(args)
+    ensure_minimal_training_models(args)
 
     pipeline = load_colab_pipeline(args.repo_dir)
 
@@ -195,6 +298,7 @@ def main() -> None:
         run(train_cmd, args.repo_dir)
 
     index_path = pipeline.build_index(args.repo_dir, args.experiment, args.version)
+    export_dir = args.export_dir or (Path("/kaggle/working/rvc_models") / args.experiment)
     summary = {
         "environment": "kaggle",
         "experiment": args.experiment,
@@ -202,7 +306,8 @@ def main() -> None:
         "log_dir": str(exp_dir),
         "index": str(index_path),
         "weights_dir": str(args.repo_dir / "assets" / "weights"),
-        "export_dir": str(args.export_dir or (Path("/kaggle/working/rvc_models") / args.experiment)),
+        "export_dir": str(export_dir),
+        "package": str(export_dir.with_suffix(".zip")),
     }
     summary_path = exp_dir / "kaggle_train_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -187,7 +187,7 @@ print(f"Python: {sys.version.split()[0]}, installing {requirements_file}")
 Kaggle 的路径和 Colab 不同：
 
 - 输入数据：`/kaggle/input/...`，只读。
-- 临时工作区和输出：`/kaggle/working/...`，训练产物会作为 Notebook Output 保存。
+- 临时工作区和输出：`/kaggle/working/...`，训练完成后默认只保留 `/kaggle/working/rvc_models/<实验名>.zip` 方便下载。
 
 Notebook 里的关键参数示例：
 
@@ -197,6 +197,7 @@ REPO_DIR = Path("/kaggle/working/RVC")
 DATASET_ZIP = Path("/kaggle/input/zh-leijun-45m/zh_leijun_45m.zip")
 EXPERIMENT = "leijun_zh_v2_48k"
 EXPORT_DIR = Path("/kaggle/working/rvc_models") / EXPERIMENT
+PACKAGE_PATH = EXPORT_DIR.with_suffix(".zip")
 ```
 
 脚本版等价命令：
@@ -208,8 +209,9 @@ cd /kaggle/working/RVC
 python -m venv --system-site-packages /kaggle/working/rvc_venv
 /kaggle/working/rvc_venv/bin/python -m pip install --upgrade pip setuptools wheel
 /kaggle/working/rvc_venv/bin/python -m pip install -r rvc_training_data/kaggle/requirements-kaggle.txt
+/kaggle/working/rvc_venv/bin/python -m pip install --upgrade --force-reinstall "setuptools>=70" "pyworld==0.3.2"
 /kaggle/working/rvc_venv/bin/python -c "import fairseq; print(fairseq.__file__)"
-/kaggle/working/rvc_venv/bin/python tools/download_models.py
+/kaggle/working/rvc_venv/bin/python -c "import pyworld; print(pyworld.__file__)"
 
 /kaggle/working/rvc_venv/bin/python rvc_training_data/kaggle/train_rvc_kaggle.py \
   --repo-dir /kaggle/working/RVC \
@@ -223,15 +225,23 @@ python -m venv --system-site-packages /kaggle/working/rvc_venv
   --batch-size 8 \
   --total-epoch 200 \
   --save-every-epoch 20 \
-  --save-every-weights 1 \
+  --save-every-weights 0 \
   --export-dir /kaggle/working/rvc_models/leijun_zh_v2_48k
 ```
 
+Kaggle 版默认会减少磁盘占用：
+
+- `--save-every-weights 0`：不额外保存每个保存周期的推理权重。
+- `--save-latest 1`：训练 checkpoint 只覆盖最新的 `G_2333333.pth`/`D_2333333.pth`。
+- 只下载当前训练必需的 HuBERT、RMVPE 和 G/D 预训练模型，不下载全量 WebUI/UVR 模型。
+- 导出后自动打包最终 `.pth`、`.index`、`train.log` 和 summary。
+- 默认删除训练中间目录、复制到 `assets/weights` 的权重副本、未压缩的导出目录。
+
 训练完成后下载 Kaggle Output 里的：
 
-- `/kaggle/working/rvc_models/leijun_zh_v2_48k/leijun_zh_v2_48k.pth`
-- `/kaggle/working/rvc_models/leijun_zh_v2_48k/added_IVF*.index`
-- `/kaggle/working/rvc_models/leijun_zh_v2_48k/train.log`
+- `/kaggle/working/rvc_models/leijun_zh_v2_48k.zip`
+
+如果需要保留未压缩文件夹用于调试，给脚本加 `--keep-export-dir`；如果需要保留训练中间特征和 checkpoint，给脚本加 `--keep-training-cache`。
 
 ## 6. 本地加载变声器
 
