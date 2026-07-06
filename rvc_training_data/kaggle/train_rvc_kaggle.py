@@ -62,6 +62,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--export-checkpoints", action="store_true", help="Also export logs/<experiment>/G_*.pth and D_*.pth.")
     parser.add_argument("--keep-export-dir", action="store_true", help="Keep unpacked exported files next to the zip package.")
     parser.add_argument("--keep-training-cache", action="store_true", help="Keep copied datasets, feature cache, and checkpoints after export.")
+    parser.add_argument("--keep-venv", action="store_true", help="Keep /kaggle/working/rvc_venv after export.")
     parser.add_argument("--skip-model-download", action="store_true", help="Do not download minimal Kaggle training models.")
     return parser.parse_args()
 
@@ -191,6 +192,12 @@ def cleanup_after_export(args: argparse.Namespace, export_dir: Path) -> None:
     if not args.keep_export_dir and export_dir.exists():
         shutil.rmtree(export_dir)
         print(f"Removed unpacked export dir: {export_dir}")
+
+    venv_python = Path(os.environ.get("RVC_KAGGLE_PYTHON", DEFAULT_KAGGLE_PYTHON))
+    venv_dir = venv_python.parent.parent
+    if not args.keep_venv and venv_dir.exists() and Path("/kaggle/working") in venv_dir.resolve().parents:
+        shutil.rmtree(venv_dir)
+        print(f"Removed Kaggle training venv: {venv_dir}")
 
 
 def export_artifacts(args: argparse.Namespace, summary_path: Path) -> Path:

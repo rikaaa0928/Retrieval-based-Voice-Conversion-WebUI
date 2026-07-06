@@ -182,7 +182,7 @@ print(f"Python: {sys.version.split()[0]}, installing {requirements_file}")
 
 ## 5. Kaggle 训练 RVC
 
-推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。Kaggle 下不要直接装根目录的完整 WebUI requirements；Notebook 会先安装 `uv`，用 `uv venv` 创建 `/kaggle/working/rvc_venv`，再用 `uv pip` 安装 `rvc_training_data/kaggle/requirements-kaggle.txt` 这份训练最小依赖。
+推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。Kaggle 下不要直接装根目录的完整 WebUI requirements；Notebook 会先安装 `uv`，用 `uv venv` 创建隔离的 `/kaggle/working/rvc_venv`，再用 `uv pip` 安装 `rvc_training_data/kaggle/requirements-kaggle.txt` 这份训练最小依赖。训练结束后默认删除 venv，避免 Output 体积过大。
 
 Kaggle 的路径和 Colab 不同：
 
@@ -207,7 +207,7 @@ cd /kaggle/working
 git clone https://github.com/rikaaa0928/Retrieval-based-Voice-Conversion-WebUI.git RVC
 cd /kaggle/working/RVC
 python -m pip install --user --upgrade uv
-~/.local/bin/uv venv --system-site-packages /kaggle/working/rvc_venv
+~/.local/bin/uv venv /kaggle/working/rvc_venv
 ~/.local/bin/uv pip install --python /kaggle/working/rvc_venv/bin/python -r rvc_training_data/kaggle/requirements-kaggle.txt
 /kaggle/working/rvc_venv/bin/python -c "import fairseq; print(fairseq.__file__)"
 /kaggle/working/rvc_venv/bin/python -c "import pyworld; print(pyworld.__file__)"
@@ -235,13 +235,13 @@ Kaggle 版默认会减少磁盘占用：
 - `--save-latest 1`：训练 checkpoint 只覆盖最新的 `G_2333333.pth`/`D_2333333.pth`。
 - 只下载当前训练必需的 HuBERT、RMVPE 和 G/D 预训练模型，不下载全量 WebUI/UVR 模型。
 - 导出后自动打包最终 `.pth`、`.index`、`train.log` 和 summary。
-- 默认删除训练中间目录、复制到 `assets/weights` 的权重副本、未压缩的导出目录。
+- 默认删除训练中间目录、复制到 `assets/weights` 的权重副本、未压缩的导出目录和训练 venv。
 
 训练完成后下载 Kaggle Output 里的：
 
 - `/kaggle/working/rvc_models/leijun_zh_v2_48k.zip`
 
-如果需要保留未压缩文件夹用于调试，给脚本加 `--keep-export-dir`；如果需要保留训练中间特征和 checkpoint，给脚本加 `--keep-training-cache`。
+如果需要保留未压缩文件夹用于调试，给脚本加 `--keep-export-dir`；如果需要保留训练中间特征和 checkpoint，给脚本加 `--keep-training-cache`；如果需要保留 venv，给脚本加 `--keep-venv`。
 
 ## 6. 本地加载变声器
 
