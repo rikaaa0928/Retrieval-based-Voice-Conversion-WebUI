@@ -182,7 +182,7 @@ print(f"Python: {sys.version.split()[0]}, installing {requirements_file}")
 
 ## 5. Kaggle 训练 RVC
 
-推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。Kaggle 下不要直接装根目录的完整 WebUI requirements；Notebook 会创建 `/kaggle/working/rvc_venv`，并安装 `rvc_training_data/kaggle/requirements-kaggle.txt` 这份训练最小依赖，避免降级 Kaggle 主环境里的 `pydantic/starlette`。
+推荐直接打开 `rvc_training_data/kaggle/train_rvc_kaggle.ipynb`，按单元格执行。Kaggle 右侧设置里需要开启 GPU 和 Internet，然后把本地生成的 `zh_leijun_45m.zip` 添加为 Kaggle Dataset。Kaggle 下不要直接装根目录的完整 WebUI requirements；Notebook 会把 `rvc_training_data/kaggle/requirements-kaggle.txt` 这份训练最小依赖安装到 `/kaggle/working/rvc_python_deps`，并通过 `PYTHONPATH` 注入训练进程，避免 Kaggle 主环境依赖冲突，也不依赖 `venv/ensurepip`。
 
 Kaggle 的路径和 Colab 不同：
 
@@ -206,14 +206,16 @@ PACKAGE_PATH = EXPORT_DIR.with_suffix(".zip")
 cd /kaggle/working
 git clone https://github.com/rikaaa0928/Retrieval-based-Voice-Conversion-WebUI.git RVC
 cd /kaggle/working/RVC
-python -m venv --system-site-packages /kaggle/working/rvc_venv
-/kaggle/working/rvc_venv/bin/python -m pip install --upgrade pip setuptools wheel
-/kaggle/working/rvc_venv/bin/python -m pip install -r rvc_training_data/kaggle/requirements-kaggle.txt
-/kaggle/working/rvc_venv/bin/python -m pip install --upgrade --force-reinstall "setuptools>=70" "pyworld==0.3.2"
-/kaggle/working/rvc_venv/bin/python -c "import fairseq; print(fairseq.__file__)"
-/kaggle/working/rvc_venv/bin/python -c "import pyworld; print(pyworld.__file__)"
+mkdir -p /kaggle/working/rvc_python_deps
+python -m pip install --upgrade --target /kaggle/working/rvc_python_deps pip "setuptools>=70" wheel
+python -m pip install --upgrade --target /kaggle/working/rvc_python_deps -r rvc_training_data/kaggle/requirements-kaggle.txt
+python -m pip install --upgrade --force-reinstall --target /kaggle/working/rvc_python_deps "setuptools>=70" "pyworld==0.3.2"
+PYTHONPATH=/kaggle/working/rvc_python_deps python -c "import fairseq; print(fairseq.__file__)"
+PYTHONPATH=/kaggle/working/rvc_python_deps python -c "import pyworld; print(pyworld.__file__)"
 
-/kaggle/working/rvc_venv/bin/python rvc_training_data/kaggle/train_rvc_kaggle.py \
+RVC_KAGGLE_DEPS=/kaggle/working/rvc_python_deps \
+PYTHONPATH=/kaggle/working/rvc_python_deps \
+python rvc_training_data/kaggle/train_rvc_kaggle.py \
   --repo-dir /kaggle/working/RVC \
   --dataset-zip /kaggle/input/zh-leijun-45m/zh_leijun_45m.zip \
   --experiment leijun_zh_v2_48k \
