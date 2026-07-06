@@ -24,6 +24,17 @@ import soundfile as sf
 import torch
 import torch.nn.functional as F
 
+
+_torch_load = torch.load
+
+
+def torch_load_compatible(*args, **kwargs):
+    kwargs.setdefault("weights_only", False)
+    return _torch_load(*args, **kwargs)
+
+
+torch.load = torch_load_compatible
+
 if "privateuseone" not in device:
     device = "cpu"
     if torch.cuda.is_available():
