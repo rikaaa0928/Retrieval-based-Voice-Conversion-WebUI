@@ -20,9 +20,6 @@ import torch.nn.functional as F
 import torchaudio.transforms as tat
 from dotenv import load_dotenv
 
-from configs.config import Config
-from infer.lib import rtrvc as rvc_for_realtime
-
 
 ASSET_URL = "https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/main"
 ARTIFACT_SUFFIXES = {".pth", ".index"}
@@ -70,6 +67,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--samplerate", type=int, default=0, help="0 uses model sample rate.")
     parser.add_argument("--input-channels", type=int, default=1)
     parser.add_argument("--output-channels", type=int, default=1)
+    parser.add_argument("--test-tone", action="store_true", help="Play a test tone and exit.")
+    parser.add_argument("--passthrough", action="store_true", help="Monitor mic input directly and exit on Ctrl+C.")
+    parser.add_argument("--duration", type=float, default=3.0, help="Duration for --test-tone.")
     parser.add_argument("--pitch", type=int, default=0, help="Pitch shift in semitones.")
     parser.add_argument("--formant", type=float, default=0.0)
     parser.add_argument("--index-rate", type=float, default=0.3)
@@ -197,8 +197,69 @@ def ensure_assets(f0method: str, auto_download: bool) -> None:
         download_file(f"{ASSET_URL}/{path.name}", path)
 
 
+def default_output_samplerate(output_device: int | None, fallback: int = 48000) -> int:
+    if output_device is None:
+        return fallback
+    device = sd.query_devices(output_device, "output")
+    return int(device.get("default_samplerate") or fallback)
+
+
+def fill_output(outdata: np.ndarray, mono: np.ndarray, channels: int) -> None:
+    samples = min(outdata.shape[0], mono.shape[0])
+    outdata[:] = 0
+    if channels == 1:
+        outdata[:samples, 0] = mono[:samples]
+    else:
+        outdata[:samples, :] = np.repeat(mono[:samples, None], channels, axis=1)
+
+
+def run_test_tone(args: argparse.Namespace) -> None:
+    samplerate = args.samplerate or default_output_samplerate(args.output_device)
+    frames = int(args.duration * samplerate)
+    t = np.arange(frames, dtype=np.float32) / samplerate
+    tone = 0.15 * np.sin(2 * np.pi * 440 * t)
+    audio = (
+        tone[:, None]
+        if args.output_channels == 1
+        else np.repeat(tone[:, None], args.output_channels, axis=1)
+    )
+    print(
+        f"Playing {args.duration:.1f}s test tone on output device "
+        f"{args.output_device}, samplerate {samplerate}, channels {args.output_channels}"
+    )
+    sd.play(audio, samplerate=samplerate, device=args.output_device, blocking=True)
+
+
+def run_passthrough(args: argparse.Namespace) -> None:
+    samplerate = args.samplerate or default_output_samplerate(args.output_device)
+
+    def callback(indata: np.ndarray, outdata: np.ndarray, frames, times, status) -> None:
+        if status:
+            print(status, file=sys.stderr)
+        mono = indata.mean(axis=1)
+        fill_output(outdata, mono, args.output_channels)
+
+    print("Mic passthrough started. Press Ctrl+C to stop.")
+    print(
+        f"Input: {args.input_device}, output: {args.output_device}, "
+        f"samplerate: {samplerate}, channels: {args.input_channels}->{args.output_channels}"
+    )
+    with sd.Stream(
+        device=(args.input_device, args.output_device),
+        channels=(args.input_channels, args.output_channels),
+        callback=callback,
+        samplerate=samplerate,
+        dtype="float32",
+    ):
+        while True:
+            time.sleep(0.5)
+
+
 class RealtimeMicVC:
     def __init__(self, args: argparse.Namespace, model_path: Path, index_path: Path) -> None:
+        from configs.config import Config
+        from infer.lib import rtrvc as rvc_for_realtime
+
         self.args = args
         self.model_path = str(model_path)
         self.index_path = str(index_path) if str(index_path) else ""
@@ -235,6 +296,22 @@ class RealtimeMicVC:
         )
         if not hasattr(self.rvc, "tgt_sr"):
             raise RuntimeError("RVC model initialization failed. Check the traceback above.")
+        if args.f0method == "rmvpe":
+            from infer.lib.rmvpe import RMVPE
+
+            print("Preloading rmvpe model...")
+            self.rvc.model_rmvpe = RMVPE(
+                "assets/rmvpe/rmvpe.pt",
+                is_half=self.rvc.is_half,
+                device=self.rvc.device,
+                use_jit=self.config.use_jit,
+            )
+        elif args.f0method == "fcpe":
+            from torchfcpe import spawn_bundled_infer_model
+
+            print("Preloading fcpe model...")
+            self.rvc.device_fcpe = self.rvc.device
+            self.rvc.model_fcpe = spawn_bundled_infer_model(self.rvc.device_fcpe)
         self.samplerate = args.samplerate or self.rvc.tgt_sr
         self.zc = self.samplerate // 100
         self.block_frame = int(np.round(args.block_time * self.samplerate / self.zc)) * self.zc
@@ -391,10 +468,7 @@ class RealtimeMicVC:
         ]
 
         chunk = infer_wav[: self.block_frame].detach().cpu().numpy()
-        if self.args.output_channels == 1:
-            outdata[:, 0] = chunk
-        else:
-            outdata[:] = np.repeat(chunk[:, None], self.args.output_channels, axis=1)
+        fill_output(outdata, chunk, self.args.output_channels)
         if self.args.verbose:
             print(f"Infer time: {(time.perf_counter() - started) * 1000:.1f} ms")
 
@@ -430,6 +504,15 @@ def main() -> None:
     sys.argv = sys.argv[:1]
     if args.list_devices:
         list_devices()
+        return
+    if args.test_tone:
+        run_test_tone(args)
+        return
+    if args.passthrough:
+        try:
+            run_passthrough(args)
+        except KeyboardInterrupt:
+            print("\nStopped.")
         return
     if sys.platform == "darwin" and str(args.device).startswith("mps"):
         raise RuntimeError(
