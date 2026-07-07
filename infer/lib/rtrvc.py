@@ -35,7 +35,14 @@ def torch_load_compatible(*args, **kwargs):
 
 torch.load = torch_load_compatible
 
-mm = M()
+_manager = None
+
+
+def get_manager():
+    global _manager
+    if _manager is None:
+        _manager = M()
+    return _manager
 
 
 def printt(strr, *args):
@@ -268,7 +275,7 @@ class RVC:
         part_length = 160 * ((length // 160 - 1) // n_cpu + 1)
         n_cpu = (length // 160 - 1) // (part_length // 160) + 1
         ts = ttime()
-        res_f0 = mm.dict()
+        res_f0 = get_manager().dict()
         for idx in range(n_cpu):
             tail = part_length * (idx + 1) + 320
             if idx == 0:

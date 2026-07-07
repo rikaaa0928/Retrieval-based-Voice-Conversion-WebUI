@@ -431,6 +431,11 @@ def main() -> None:
     if args.list_devices:
         list_devices()
         return
+    if sys.platform == "darwin" and str(args.device).startswith("mps"):
+        raise RuntimeError(
+            "Realtime audio callbacks are unstable with PyTorch MPS on macOS. "
+            "Use --device cpu --fp32 instead."
+        )
 
     model_path, index_path = resolve_artifacts(args)
     ensure_assets(args.f0method, not args.no_auto_download_assets)
