@@ -25,6 +25,16 @@ from configs.config import Config
 
 # config = Config()
 
+_torch_load = torch.load
+
+
+def torch_load_compatible(*args, **kwargs):
+    kwargs.setdefault("weights_only", False)
+    return _torch_load(*args, **kwargs)
+
+
+torch.load = torch_load_compatible
+
 mm = M()
 
 

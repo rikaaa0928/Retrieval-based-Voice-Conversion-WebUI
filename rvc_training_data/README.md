@@ -253,6 +253,40 @@ assets/weights/leijun_zh_v2_48k.pth
 logs/leijun_zh_v2_48k/added_IVF...index
 ```
 
+如果是 Kaggle 默认导出的 zip，也可以不解压，直接给实时工具读取：
+
+```bash
+python tools/realtime_mic_vc.py --list-devices
+
+python tools/realtime_mic_vc.py \
+  --package /path/to/leijun_zh_v2_48k.zip \
+  --input-device 1 \
+  --output-device 2 \
+  --f0method rmvpe \
+  --index-rate 0.3
+```
+
+也可以手动指定模型和 index：
+
+```bash
+python tools/realtime_mic_vc.py \
+  --model assets/weights/leijun_zh_v2_48k.pth \
+  --index logs/leijun_zh_v2_48k/added_IVF.index \
+  --input-device 1 \
+  --output-device 2
+```
+
+常用实时参数：
+
+- `--pitch`：半音升降调，男转女常试 `12`，女转男常试 `-12`。
+- `--index-rate`：音色检索强度，常用 `0.2-0.5`；设 `0` 可不使用 index。
+- `--block-time`：每次处理的音频块长度，越小延迟越低但更吃性能，默认 `0.25`。
+- `--crossfade-time`：交叉淡入淡出长度，默认 `0.05`。
+- `--threshold`：静音门限，默认 `-60` 基本不关声音；环境噪声大可试 `-45`。
+- `--fp32`：显卡半精度不稳定或使用 CPU/MPS 时可加上。
+
+实时外放时建议戴耳机，避免扬声器声音被麦克风再次收进去。
+
 本地 RVC 环境也可以用 uv 建：
 
 ```bash
